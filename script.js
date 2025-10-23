@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩 
 // @namespace    https://github.com/JustDoIt166
-// @version      1.2
+// @version      1.2.2
 // @description  拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮
 // @author       JustDoIt166
 // @match        https://chat.qwen.ai/*
@@ -24,9 +24,9 @@
 
     const DEFAULT_SETTINGS = {
         mimeType: 'image/webp',
-        quality: 0.7,
-        maxWidth: 1920,
-        maxHeight: 1080,
+        quality: 0.85,
+        maxWidth: 2560,
+        maxHeight: 1440,
         autoCompress: true,
         adaptiveQuality: true,
         enableHotkey: true,
@@ -50,7 +50,7 @@
             this.createUI();
             this.initWorker();
             this.setupHotkeyListener();
-            console.log('🛡️ 图片压缩脚本 v1.0 已激活');
+            console.log('🛡️ 图片压缩脚本 v1.2.2 已激活');
         },
 
         loadSettings() {
@@ -93,29 +93,54 @@
                     try {
                         const imageBitmap = await createImageBitmap(file);
                         let { width, height } = imageBitmap;
-
+                        
+                        // 保留原始宽高比，但只有在图片确实超过最大尺寸时才缩放
+                        const originalRatio = width / height;
+                        let needsResize = false;
+                        
                         if (width > maxWidth) {
-                            height = (height * maxWidth) / width;
                             width = maxWidth;
+                            height = width / originalRatio;
+                            needsResize = true;
                         }
+                        
                         if (height > maxHeight) {
-                            width = (width * maxHeight) / height;
                             height = maxHeight;
+                            width = height * originalRatio;
+                            needsResize = true;
                         }
+                        
+                        // 只有需要缩放时才创建新的canvas
+                        if (needsResize) {
+                            const canvas = new OffscreenCanvas(Math.round(width), Math.round(height));
+                            const ctx = canvas.getContext('2d');
 
-                        const canvas = new OffscreenCanvas(width, height);
-                        const ctx = canvas.getContext('2d');
+                            if (mimeType === 'image/jpeg') {
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, width, height);
+                            }
 
-                        if (mimeType === 'image/jpeg') {
-                            ctx.fillStyle = '#FFFFFF';
-                            ctx.fillRect(0, 0, width, height);
+                            ctx.drawImage(imageBitmap, 0, 0, Math.round(width), Math.round(height));
+                            imageBitmap.close();
+
+                            const blob = await canvas.convertToBlob({ type: mimeType, quality });
+                            self.postMessage({ compressedBlob: blob });
+                        } else {
+                            // 如果不需要缩放，直接转换格式
+                            const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
+                            const ctx = canvas.getContext('2d');
+                            
+                            if (mimeType === 'image/jpeg') {
+                                ctx.fillStyle = '#FFFFFF';
+                                ctx.fillRect(0, 0, imageBitmap.width, imageBitmap.height);
+                            }
+                            
+                            ctx.drawImage(imageBitmap, 0, 0);
+                            imageBitmap.close();
+                            
+                            const blob = await canvas.convertToBlob({ type: mimeType, quality });
+                            self.postMessage({ compressedBlob: blob });
                         }
-
-                        ctx.drawImage(imageBitmap, 0, 0, width, height);
-                        imageBitmap.close();
-
-                        const blob = await canvas.convertToBlob({ type: mimeType, quality });
-                        self.postMessage({ compressedBlob: blob });
                     } catch (error) {
                         self.postMessage({ error: error.message });
                     }
@@ -153,9 +178,11 @@
         },
 
         getAdaptiveQuality(fileSize) {
-            if (fileSize < 1024 * 1024) return 0.9;
-            if (fileSize < 5 * 1024 * 1024) return 0.7;
-            return 0.5;
+            // 自适应质量
+            if (fileSize < 1024 * 1024) return 0.95;
+            if (fileSize < 3 * 1024 * 1024) return 0.85;
+            if (fileSize < 5 * 1024 * 1024) return 0.75;
+            return 0.65;
         },
 
         async handleMultipleFiles(files) {
@@ -213,10 +240,18 @@
         },
 
         createUI() {
+            // 先检查是否已存在按钮
+            if (document.getElementById('compress-settings-btn')) {
+                console.log('按钮已存在，跳过创建');
+                return;
+            }
+
             const settingsBtn = document.createElement('div');
             settingsBtn.id = 'compress-settings-btn';
             settingsBtn.innerHTML = '🖼️';
             settingsBtn.title = '图片压缩设置（双击隐藏）';
+            
+            // 设置初始样式
             settingsBtn.style.cssText = `
                 position: fixed;
                 top: 50%;
@@ -236,7 +271,26 @@
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                 transition: transform 0.2s;
                 user-select: none;
+                visibility: visible;
+                opacity: 1;
             `;
+            
+            // 恢复上次保存的位置，并确保在可见区域内
+            const savedPos = JSON.parse(localStorage.getItem('compressBtnPosition') || 'null');
+            if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
+                // 确保位置是有效的数字
+                const x = Math.max(0, Math.min(savedPos.x, window.innerWidth - 50));
+                const y = Math.max(0, Math.min(savedPos.y, window.innerHeight - 50));
+                
+                settingsBtn.style.left = x + 'px';
+                settingsBtn.style.top = y + 'px';
+                settingsBtn.style.right = 'auto';
+                settingsBtn.style.bottom = 'auto';
+                settingsBtn.style.transform = 'none';
+                
+                console.log(`恢复按钮位置: x=${x}, y=${y}`);
+            }
+            
             let isDragging = false;
             let offsetX, offsetY;
 
@@ -267,6 +321,12 @@
             const onMouseUp = () => {
                 isDragging = false;
                 settingsBtn.style.cursor = 'move';
+                // 保存当前位置
+                const rect = settingsBtn.getBoundingClientRect();
+                const x = rect.left + window.scrollX;
+                const y = rect.top + window.scrollY;
+                localStorage.setItem('compressBtnPosition', JSON.stringify({ x, y }));
+                console.log(`保存按钮位置: x=${x}, y=${y}`);
             };
 
             settingsBtn.addEventListener('mousedown', onMouseDown);
@@ -277,6 +337,7 @@
             settingsBtn.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 settingsBtn.style.display = 'none';
+                console.log('按钮已隐藏');
             });
 
             // 移动端双击模拟
@@ -287,6 +348,7 @@
                     e.preventDefault();
                     e.stopPropagation();
                     settingsBtn.style.display = 'none';
+                    console.log('按钮已隐藏（移动端）');
                     lastTap = 0;
                 } else {
                     lastTap = now;
@@ -307,7 +369,18 @@
                 if (!isDragging) settingsBtn.style.transform = 'scale(1)';
             });
 
-            document.body.appendChild(settingsBtn);
+            // 确保按钮被添加到body
+            if (document.body) {
+                document.body.appendChild(settingsBtn);
+                console.log('按钮已添加到页面');
+            } else {
+                // 如果body还未加载，等待DOM加载完成
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.body.appendChild(settingsBtn);
+                    console.log('按钮已添加到页面（DOM加载后）');
+                });
+            }
+            
             this.createSettingsPanel();
         },
 
@@ -343,7 +416,7 @@
                     <label style="display: block; margin-bottom: 8px; color: #555;">
                         压缩质量: <span id="quality-value">${this.settings.quality}</span>
                     </label>
-                    <input type="range" id="quality-slider" min="0.1" max="1" step="0.1" value="${this.settings.quality}" style="width: 100%;">
+                    <input type="range" id="quality-slider" min="0.1" max="1" step="0.05" value="${this.settings.quality}" style="width: 100%;">
                 </div>
                 <div class="setting-item" style="margin-bottom: 16px;">
                     <label style="display: block; margin-bottom: 8px; color: #555;">
@@ -352,6 +425,7 @@
                     <select id="output-format" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
                         <option value="image/webp" ${this.settings.mimeType === 'image/webp' ? 'selected' : ''}>WebP（推荐，更小体积）</option>
                         <option value="image/jpeg" ${this.settings.mimeType === 'image/jpeg' ? 'selected' : ''}>JPEG（兼容性好）</option>
+                        <option value="image/png" ${this.settings.mimeType === 'image/png' ? 'selected' : ''}>PNG（无损压缩）</option>
                     </select>
                 </div>
                 <div class="setting-item" style="margin-bottom: 16px;">
@@ -579,5 +653,12 @@
         }
     };
 
-    ImageCompressor.init();
+    // 确保在DOM加载完成后初始化
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            ImageCompressor.init();
+        });
+    } else {
+        ImageCompressor.init();
+    }
 })();
