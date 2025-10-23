@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩 
 // @namespace    https://github.com/JustDoIt166
-// @version      1.0
+// @version      1.1
 // @description  拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮
 // @author       JustDoIt166
 // @match        https://chat.qwen.ai/*
