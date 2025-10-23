@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩 
 // @namespace    https://github.com/JustDoIt166
-// @version      1.1
+// @version      1.2
 // @description  拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮
 // @author       JustDoIt166
 // @match        https://chat.qwen.ai/*
@@ -217,23 +217,25 @@
             settingsBtn.id = 'compress-settings-btn';
             settingsBtn.innerHTML = '🖼️';
             settingsBtn.title = '图片压缩设置（双击隐藏）';
-            panel.style.cssText = `
+            settingsBtn.style.cssText = `
                 position: fixed;
                 top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: white;
-                border-radius: 12px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-                z-index: 100000;
-                width: 400px;
-                max-width: 90vw;
-                max-height: 80vh;
-                overflow-y: auto;
-                display: none;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                padding: 24px;
-                box-sizing: border-box;
+                right: 20px;
+                transform: translateY(-50%);
+                width: 50px;
+                height: 50px;
+                background: #2196f3;
+                color: white;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                cursor: move;
+                z-index: 99999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                transition: transform 0.2s;
+                user-select: none;
             `;
             let isDragging = false;
             let offsetX, offsetY;
@@ -322,12 +324,15 @@
                 background: white;
                 border-radius: 12px;
                 box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-                padding: 24px;
                 z-index: 100000;
                 width: 400px;
                 max-width: 90vw;
+                max-height: 80vh;
+                overflow-y: auto;
                 display: none;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                padding: 24px;
+                box-sizing: border-box;
             `;
 
             const savedMB = (stats.totalSizeSaved / 1024 / 1024).toFixed(2);
