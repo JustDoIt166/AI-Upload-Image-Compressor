@@ -217,27 +217,24 @@
             settingsBtn.id = 'compress-settings-btn';
             settingsBtn.innerHTML = '🖼️';
             settingsBtn.title = '图片压缩设置（双击隐藏）';
-            settingsBtn.style.cssText = `
+            panel.style.cssText = `
                 position: fixed;
                 top: 50%;
-                right: 20px;
-                transform: translateY(-50%);
-                width: 50px;
-                height: 50px;
-                background: #2196f3;
-                color: white;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 24px;
-                cursor: move;
-                z-index: 99999;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                transition: transform 0.2s;
-                user-select: none;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+                z-index: 100000;
+                width: 400px;
+                max-width: 90vw;
+                max-height: 80vh;
+                overflow-y: auto;
+                display: none;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                padding: 24px;
+                box-sizing: border-box;
             `;
-
             let isDragging = false;
             let offsetX, offsetY;
 
