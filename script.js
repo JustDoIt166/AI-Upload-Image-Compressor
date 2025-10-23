@@ -9,6 +9,7 @@
 // @match        https://gemini.google.com/*
 // @match        https://chat.deepseek.com/*
 // @grant        none
+// @license      MIT
 // ==/UserScript==
 
 (function () {
