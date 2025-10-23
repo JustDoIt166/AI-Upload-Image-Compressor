@@ -32,8 +32,8 @@
 
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展（Chrome / Edge / Firefox 等均支持）
 2. 点击以下链接安装脚本：
-   - [安装 AI 图片智能压缩助手](https://greasyfork.org/zh-CN/scripts/553468-ai-%E7%BD%91%E9%A1%B5%E5%9B%BE%E7%89%87%E4%B8%8A%E4%BC%A0-%E5%8E%8B%E7%BC%A9)
-   - 或手动创建脚本，粘贴 。[完整脚本](https://greasyfork.org/zh-CN/scripts/553468-ai-%E7%BD%91%E9%A1%B5%E5%9B%BE%E7%89%87%E4%B8%8A%E4%BC%A0-%E5%8E%8B%E7%BC%A9)
+   - [Greasy Fork 安装 AI 图片智能压缩助手](https://greasyfork.org/zh-CN/scripts/553468-ai-%E7%BD%91%E9%A1%B5%E5%9B%BE%E7%89%87%E4%B8%8A%E4%BC%A0-%E5%8E%8B%E7%BC%A9)
+   - 或手动创建脚本，粘贴 。[完整脚本](https://github.com/JustDoIt166/AI-Upload-Image-Compressor/blob/main/script.js)
 3. 刷新目标网站（如 chat.qwen.ai），右上角将出现 🖼️ 设置按钮
 
 ---
