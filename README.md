@@ -27,7 +27,22 @@
 - 💾 **持久化配置**：所有设置保存在浏览器 `localStorage` 中，重启不失效
 
 ---
+## 📸 使用示例
 
+### 1. 悬浮设置按钮（默认位于右侧中部）
+可拖动调整位置，双击按钮隐藏，默认快捷键 `Alt + C` 唤出。
+
+![设置按钮示例](assets/exampli.webp)
+
+
+---
+
+### 2. 设置面板（支持滚动 & 自定义）
+可调整压缩质量、格式、分辨率，并启用/禁用快捷键。
+
+![设置面板](assets/panel.png)
+
+---
 ## 🛠 安装方式
 
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展（Chrome / Edge / Firefox 等均支持）
