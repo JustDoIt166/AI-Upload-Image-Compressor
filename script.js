@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩
 // @namespace   https://github.com/JustDoIt166
-// @version     1.2.4
+// @version     1.2.5
 // @description 拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮；隐藏状态持久化
 // @author      JustDoIt166
 // @match       https://chat.qwen.ai/*
@@ -53,7 +53,7 @@
             this.setupHotkeyListener();
             this.setupGlobalRevealOnDblTap(); //移动端空白双击唤出按钮
             this.setupDesktopRevealOnDblClick(); //桌面端空白双击唤出按钮
-            console.log('🛡️ 图片压缩脚本 v1.2.4 已激活');
+            console.log('🛡️ 图片压缩脚本 v1.2.5 已激活');
         },
 
         loadSettings() {
@@ -225,7 +225,38 @@
 
             const settingsBtn = document.createElement('div');
             settingsBtn.id = 'compress-settings-btn';
-            settingsBtn.innerHTML = '🖼️';
+            settingsBtn.innerHTML = `
+                <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="paperGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#FDF8EC"/>
+                        <stop offset="100%" stop-color="#EBE3D6"/>
+                        </linearGradient>
+                        <linearGradient id="darkPaperGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stop-color="#D6CFBF"/>
+                        <stop offset="100%" stop-color="#C2BAAB"/>
+                        </linearGradient>
+                    </defs>
+
+                    <g transform="translate(60, 20) rotate(5)">
+                        <rect x="0" y="0" width="100" height="120" rx="10" fill="url(#darkPaperGradient)" stroke="#4A4A4A" stroke-width="2"/>
+                        <line x1="85" y1="20" x2="85" y2="100" stroke="#4A4A4A" stroke-width="2" stroke-dasharray="2,4"/>
+                    </g>
+
+                    <rect x="25" y="40" width="120" height="140" rx="10" fill="url(#paperGradient)" stroke="#4A4A4A" stroke-width="2"/>
+
+                    <rect x="40" y="55" width="90" height="60" rx="5" fill="#C2E6F2" stroke="#4A4A4A" stroke-width="2"/>
+
+                    <path d="M40 115 L65 75 L85 110 L105 70 L130 115 Z" fill="#2DA592" stroke="#4A4A4A" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M55 115 L75 85 L95 115 Z" fill="#2DA592" stroke="#4A4A4A" stroke-width="2" stroke-linejoin="round"/>
+
+                    <circle cx="115" cy="70" r="8" fill="#FDD755" stroke="#4A4A4A" stroke-width="2"/>
+
+                    <rect x="40" y="130" width="70" height="5" rx="2" fill="#4A4A4A"/>
+                    <rect x="40" y="140" width="50" height="5" rx="2" fill="#4A4A4A"/>
+                    <rect x="40" y="150" width="60" height="5" rx="2" fill="#4A4A4A"/>
+            </svg>
+            `;
             settingsBtn.title = '图片压缩设置（双击隐藏）';
             settingsBtn.style.cssText = `
                 position: fixed;
@@ -234,7 +265,7 @@
                 transform: translateY(-50%);
                 width: 50px;
                 height: 50px;
-                background: #2196f3;
+                background: #FDF8EC;
                 color: white;
                 border-radius: 50%;
                 display: flex;
@@ -246,6 +277,7 @@
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                 transition: transform 0.2s;
                 user-select: none;
+                border: 1px solid #e0e0e0; /* 增加轻微边框提升辨识度 */
             `;
 
             // 恢复位置
