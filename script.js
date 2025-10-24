@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        AI 网页图片上传 压缩 
+// @name        AI 网页图片上传 压缩
 // @namespace    https://github.com/JustDoIt166
-// @version      1.2.2
+// @version      1.2.3
 // @description  拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮
 // @author       JustDoIt166
 // @match        https://chat.qwen.ai/*
@@ -50,7 +50,8 @@
             this.createUI();
             this.initWorker();
             this.setupHotkeyListener();
-            console.log('🛡️ 图片压缩脚本 v1.2.2 已激活');
+            this.setupGlobalRevealOnDblTap();
+            console.log('🛡️ 图片压缩脚本 v1.2.3 已激活');
         },
 
         loadSettings() {
@@ -58,6 +59,7 @@
             if (saved) {
                 this.settings = { ...this.settings, ...JSON.parse(saved) };
             }
+
         },
 
         saveSettings() {
@@ -93,23 +95,23 @@
                     try {
                         const imageBitmap = await createImageBitmap(file);
                         let { width, height } = imageBitmap;
-                        
+
                         // 保留原始宽高比，但只有在图片确实超过最大尺寸时才缩放
                         const originalRatio = width / height;
                         let needsResize = false;
-                        
+
                         if (width > maxWidth) {
                             width = maxWidth;
                             height = width / originalRatio;
                             needsResize = true;
                         }
-                        
+
                         if (height > maxHeight) {
                             height = maxHeight;
                             width = height * originalRatio;
                             needsResize = true;
                         }
-                        
+
                         // 只有需要缩放时才创建新的canvas
                         if (needsResize) {
                             const canvas = new OffscreenCanvas(Math.round(width), Math.round(height));
@@ -129,15 +131,15 @@
                             // 如果不需要缩放，直接转换格式
                             const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
                             const ctx = canvas.getContext('2d');
-                            
+
                             if (mimeType === 'image/jpeg') {
                                 ctx.fillStyle = '#FFFFFF';
                                 ctx.fillRect(0, 0, imageBitmap.width, imageBitmap.height);
                             }
-                            
+
                             ctx.drawImage(imageBitmap, 0, 0);
                             imageBitmap.close();
-                            
+
                             const blob = await canvas.convertToBlob({ type: mimeType, quality });
                             self.postMessage({ compressedBlob: blob });
                         }
@@ -239,6 +241,43 @@
             }, true);
         },
 
+        // 新增：尝试在空白区域双击唤出按钮
+        setupGlobalRevealOnDblTap() {
+            //if (!('ontouchstart' in window)) return; // 仅移动端
+
+            let lastTap = 0;
+
+            const handleTouchStart = (e) => {
+                // 仅当按钮已隐藏时才处理
+                const btn = document.getElementById('compress-settings-btn');
+                if (!btn || btn.style.display !== 'none') return;
+
+                const now = Date.now();
+                const target = e.target;
+
+                // 跳过可交互元素（避免干扰输入、按钮、链接等）
+                const interactiveTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'VIDEO', 'CANVAS'];
+                if (interactiveTags.includes(target.tagName) ||
+                    target.closest('button, a, input, textarea, [contenteditable="true"]')) {
+                    return;
+                }
+
+                if (now - lastTap < 350 && now - lastTap > 0) {
+                    // 双击有效
+                    e.preventDefault();
+                    e.stopPropagation();
+                    btn.style.display = 'flex';
+                    this.showToast('设置按钮已显示', 'info');
+                    lastTap = 0;
+                } else {
+                    lastTap = now;
+                }
+            };
+
+            // 使用事件委托，避免频繁绑定
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        },
+
         createUI() {
             // 先检查是否已存在按钮
             if (document.getElementById('compress-settings-btn')) {
@@ -250,7 +289,7 @@
             settingsBtn.id = 'compress-settings-btn';
             settingsBtn.innerHTML = '🖼️';
             settingsBtn.title = '图片压缩设置（双击隐藏）';
-            
+
             // 设置初始样式
             settingsBtn.style.cssText = `
                 position: fixed;
@@ -274,23 +313,23 @@
                 visibility: visible;
                 opacity: 1;
             `;
-            
+
             // 恢复上次保存的位置，并确保在可见区域内
             const savedPos = JSON.parse(localStorage.getItem('compressBtnPosition') || 'null');
             if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
                 // 确保位置是有效的数字
                 const x = Math.max(0, Math.min(savedPos.x, window.innerWidth - 50));
                 const y = Math.max(0, Math.min(savedPos.y, window.innerHeight - 50));
-                
+
                 settingsBtn.style.left = x + 'px';
                 settingsBtn.style.top = y + 'px';
                 settingsBtn.style.right = 'auto';
                 settingsBtn.style.bottom = 'auto';
                 settingsBtn.style.transform = 'none';
-                
+
                 console.log(`恢复按钮位置: x=${x}, y=${y}`);
             }
-            
+
             let isDragging = false;
             let offsetX, offsetY;
 
@@ -338,17 +377,19 @@
                 e.stopPropagation();
                 settingsBtn.style.display = 'none';
                 console.log('按钮已隐藏');
+                this.showToast('按钮已隐藏，在空白处双击可重新显示按钮', 'info');
             });
 
             // 移动端双击模拟
             let lastTap = 0;
             settingsBtn.addEventListener('touchstart', (e) => {
                 const now = Date.now();
-                if (now - lastTap < 300 && now - lastTap > 0) {
+                if (now - lastTap < 350 && now - lastTap > 0) {
                     e.preventDefault();
                     e.stopPropagation();
                     settingsBtn.style.display = 'none';
                     console.log('按钮已隐藏（移动端）');
+                    this.showToast('按钮已隐藏，在空白处双击可重新显示按钮', 'info');
                     lastTap = 0;
                 } else {
                     lastTap = now;
@@ -380,7 +421,7 @@
                     console.log('按钮已添加到页面（DOM加载后）');
                 });
             }
-            
+
             this.createSettingsPanel();
         },
 
