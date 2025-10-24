@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩
-// @namespace    https://github.com/JustDoIt166
-// @version      1.2.3
-// @description  拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮
-// @author       JustDoIt166
-// @match        https://chat.qwen.ai/*
-// @match        https://chat.z.ai/*
-// @match        https://gemini.google.com/*
-// @match        https://chat.deepseek.com/*
-// @grant        none
-// @license      MIT
+// @namespace   https://github.com/JustDoIt166
+// @version     1.2.4
+// @description 拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮；隐藏状态持久化
+// @author      JustDoIt166
+// @match       https://chat.qwen.ai/*
+// @match       https://chat.z.ai/*
+// @match       https://gemini.google.com/*
+// @match       https://chat.deepseek.com/*
+// @grant       none
+// @license     MIT
 // ==/UserScript==
 
 (function () {
@@ -41,6 +41,7 @@
 
     const ImageCompressor = {
         settings: { ...DEFAULT_SETTINGS },
+        isButtonHidden: false,
         worker: null,
 
         init() {
@@ -50,8 +51,9 @@
             this.createUI();
             this.initWorker();
             this.setupHotkeyListener();
-            this.setupGlobalRevealOnDblTap();
-            console.log('🛡️ 图片压缩脚本 v1.2.3 已激活');
+            this.setupGlobalRevealOnDblTap(); //移动端空白双击唤出按钮
+            this.setupDesktopRevealOnDblClick(); //桌面端空白双击唤出按钮
+            console.log('🛡️ 图片压缩脚本 v1.2.4 已激活');
         },
 
         loadSettings() {
@@ -59,7 +61,8 @@
             if (saved) {
                 this.settings = { ...this.settings, ...JSON.parse(saved) };
             }
-
+            // 加载按钮隐藏状态
+            this.isButtonHidden = localStorage.getItem('compressButtonHidden') === 'true';
         },
 
         saveSettings() {
@@ -95,54 +98,31 @@
                     try {
                         const imageBitmap = await createImageBitmap(file);
                         let { width, height } = imageBitmap;
-
-                        // 保留原始宽高比，但只有在图片确实超过最大尺寸时才缩放
                         const originalRatio = width / height;
                         let needsResize = false;
-
                         if (width > maxWidth) {
                             width = maxWidth;
                             height = width / originalRatio;
                             needsResize = true;
                         }
-
                         if (height > maxHeight) {
                             height = maxHeight;
                             width = height * originalRatio;
                             needsResize = true;
                         }
-
-                        // 只有需要缩放时才创建新的canvas
-                        if (needsResize) {
-                            const canvas = new OffscreenCanvas(Math.round(width), Math.round(height));
-                            const ctx = canvas.getContext('2d');
-
-                            if (mimeType === 'image/jpeg') {
-                                ctx.fillStyle = '#FFFFFF';
-                                ctx.fillRect(0, 0, width, height);
-                            }
-
-                            ctx.drawImage(imageBitmap, 0, 0, Math.round(width), Math.round(height));
-                            imageBitmap.close();
-
-                            const blob = await canvas.convertToBlob({ type: mimeType, quality });
-                            self.postMessage({ compressedBlob: blob });
-                        } else {
-                            // 如果不需要缩放，直接转换格式
-                            const canvas = new OffscreenCanvas(imageBitmap.width, imageBitmap.height);
-                            const ctx = canvas.getContext('2d');
-
-                            if (mimeType === 'image/jpeg') {
-                                ctx.fillStyle = '#FFFFFF';
-                                ctx.fillRect(0, 0, imageBitmap.width, imageBitmap.height);
-                            }
-
-                            ctx.drawImage(imageBitmap, 0, 0);
-                            imageBitmap.close();
-
-                            const blob = await canvas.convertToBlob({ type: mimeType, quality });
-                            self.postMessage({ compressedBlob: blob });
+                        const canvas = new OffscreenCanvas(
+                            needsResize ? Math.round(width) : imageBitmap.width,
+                            needsResize ? Math.round(height) : imageBitmap.height
+                        );
+                        const ctx = canvas.getContext('2d');
+                        if (mimeType === 'image/jpeg') {
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.fillRect(0, 0, canvas.width, canvas.height);
                         }
+                        ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+                        imageBitmap.close();
+                        const blob = await canvas.convertToBlob({ type: mimeType, quality });
+                        self.postMessage({ compressedBlob: blob });
                     } catch (error) {
                         self.postMessage({ error: error.message });
                     }
@@ -180,7 +160,6 @@
         },
 
         getAdaptiveQuality(fileSize) {
-            // 自适应质量
             if (fileSize < 1024 * 1024) return 0.95;
             if (fileSize < 3 * 1024 * 1024) return 0.85;
             if (fileSize < 5 * 1024 * 1024) return 0.75;
@@ -241,56 +220,13 @@
             }, true);
         },
 
-        // 新增：尝试在空白区域双击唤出按钮
-        setupGlobalRevealOnDblTap() {
-            //if (!('ontouchstart' in window)) return; // 仅移动端
-
-            let lastTap = 0;
-
-            const handleTouchStart = (e) => {
-                // 仅当按钮已隐藏时才处理
-                const btn = document.getElementById('compress-settings-btn');
-                if (!btn || btn.style.display !== 'none') return;
-
-                const now = Date.now();
-                const target = e.target;
-
-                // 跳过可交互元素（避免干扰输入、按钮、链接等）
-                const interactiveTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'VIDEO', 'CANVAS'];
-                if (interactiveTags.includes(target.tagName) ||
-                    target.closest('button, a, input, textarea, [contenteditable="true"]')) {
-                    return;
-                }
-
-                if (now - lastTap < 350 && now - lastTap > 0) {
-                    // 双击有效
-                    e.preventDefault();
-                    e.stopPropagation();
-                    btn.style.display = 'flex';
-                    this.showToast('设置按钮已显示', 'info');
-                    lastTap = 0;
-                } else {
-                    lastTap = now;
-                }
-            };
-
-            // 使用事件委托，避免频繁绑定
-            document.addEventListener('touchstart', handleTouchStart, { passive: false });
-        },
-
         createUI() {
-            // 先检查是否已存在按钮
-            if (document.getElementById('compress-settings-btn')) {
-                console.log('按钮已存在，跳过创建');
-                return;
-            }
+            if (document.getElementById('compress-settings-btn')) return;
 
             const settingsBtn = document.createElement('div');
             settingsBtn.id = 'compress-settings-btn';
             settingsBtn.innerHTML = '🖼️';
             settingsBtn.title = '图片压缩设置（双击隐藏）';
-
-            // 设置初始样式
             settingsBtn.style.cssText = `
                 position: fixed;
                 top: 50%;
@@ -310,24 +246,23 @@
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
                 transition: transform 0.2s;
                 user-select: none;
-                visibility: visible;
-                opacity: 1;
             `;
 
-            // 恢复上次保存的位置，并确保在可见区域内
+            // 恢复位置
             const savedPos = JSON.parse(localStorage.getItem('compressBtnPosition') || 'null');
             if (savedPos && typeof savedPos.x === 'number' && typeof savedPos.y === 'number') {
-                // 确保位置是有效的数字
                 const x = Math.max(0, Math.min(savedPos.x, window.innerWidth - 50));
                 const y = Math.max(0, Math.min(savedPos.y, window.innerHeight - 50));
-
                 settingsBtn.style.left = x + 'px';
                 settingsBtn.style.top = y + 'px';
                 settingsBtn.style.right = 'auto';
                 settingsBtn.style.bottom = 'auto';
                 settingsBtn.style.transform = 'none';
+            }
 
-                console.log(`恢复按钮位置: x=${x}, y=${y}`);
+            // 根据持久化状态决定是否显示
+            if (this.isButtonHidden) {
+                settingsBtn.style.display = 'none';
             }
 
             let isDragging = false;
@@ -360,12 +295,10 @@
             const onMouseUp = () => {
                 isDragging = false;
                 settingsBtn.style.cursor = 'move';
-                // 保存当前位置
                 const rect = settingsBtn.getBoundingClientRect();
                 const x = rect.left + window.scrollX;
                 const y = rect.top + window.scrollY;
                 localStorage.setItem('compressBtnPosition', JSON.stringify({ x, y }));
-                console.log(`保存按钮位置: x=${x}, y=${y}`);
             };
 
             settingsBtn.addEventListener('mousedown', onMouseDown);
@@ -375,9 +308,10 @@
             // 双击隐藏（桌面）
             settingsBtn.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
-                settingsBtn.style.display = 'none';
-                console.log('按钮已隐藏');
-                this.showToast('按钮已隐藏，在空白处双击可重新显示按钮', 'info');
+                this.hideSettingsButton();
+                if ('ontouchstart' in window) {
+                    this.showToast('在空白处双击可重新显示按钮', 'info');
+                }
             });
 
             // 移动端双击模拟
@@ -387,9 +321,10 @@
                 if (now - lastTap < 350 && now - lastTap > 0) {
                     e.preventDefault();
                     e.stopPropagation();
-                    settingsBtn.style.display = 'none';
-                    console.log('按钮已隐藏（移动端）');
-                    this.showToast('按钮已隐藏，在空白处双击可重新显示按钮', 'info');
+                    this.hideSettingsButton();
+                    if ('ontouchstart' in window) {
+                        this.showToast('在空白处双击可重新显示按钮', 'info');
+                    }
                     lastTap = 0;
                 } else {
                     lastTap = now;
@@ -410,19 +345,33 @@
                 if (!isDragging) settingsBtn.style.transform = 'scale(1)';
             });
 
-            // 确保按钮被添加到body
             if (document.body) {
                 document.body.appendChild(settingsBtn);
-                console.log('按钮已添加到页面');
             } else {
-                // 如果body还未加载，等待DOM加载完成
                 document.addEventListener('DOMContentLoaded', () => {
                     document.body.appendChild(settingsBtn);
-                    console.log('按钮已添加到页面（DOM加载后）');
                 });
             }
 
             this.createSettingsPanel();
+        },
+
+        hideSettingsButton() {
+            const btn = document.getElementById('compress-settings-btn');
+            if (btn) {
+                btn.style.display = 'none';
+                this.isButtonHidden = true;
+                localStorage.setItem('compressButtonHidden', 'true');
+            }
+        },
+
+        showSettingsButton() {
+            const btn = document.getElementById('compress-settings-btn');
+            if (btn) {
+                btn.style.display = 'flex';
+                this.isButtonHidden = false;
+                localStorage.setItem('compressButtonHidden', 'false');
+            }
         },
 
         createSettingsPanel() {
@@ -609,7 +558,6 @@
         },
 
         handleHotkeyEvent: function (e) {
-            // 使用普通函数以确保可移除监听器，通过闭包绑定 this
             const self = ImageCompressor;
             if (!self.settings.enableHotkey || !self.settings.hotkey) return;
 
@@ -622,15 +570,17 @@
 
             if (keyMatch && ctrlMatch && shiftMatch && altMatch && metaMatch) {
                 e.preventDefault();
-                const btn = document.getElementById('compress-settings-btn');
-                if (btn && btn.style.display === 'none') {
-                    btn.style.display = 'flex';
-                    btn.style.transform = 'scale(1.15)';
-                    setTimeout(() => {
-                        if (btn.style.display !== 'none') {
-                            btn.style.transform = 'scale(1)';
-                        }
-                    }, 200);
+                if (self.isButtonHidden) {
+                    self.showSettingsButton();
+                    const btn = document.getElementById('compress-settings-btn');
+                    if (btn) {
+                        btn.style.transform = 'scale(1.15)';
+                        setTimeout(() => {
+                            if (!self.isButtonHidden) {
+                                btn.style.transform = 'scale(1)';
+                            }
+                        }, 200);
+                    }
                 }
             }
         },
@@ -640,6 +590,59 @@
             if (this.settings.enableHotkey) {
                 document.addEventListener('keydown', this.handleHotkeyEvent);
             }
+        },
+
+        setupGlobalRevealOnDblTap() {
+            if (!('ontouchstart' in window)) return; //仅移动端
+
+            let lastTap = 0;
+            const self = this;
+
+            const handleTouchStart = (e) => {
+                if (!self.isButtonHidden) return;
+
+                const target = e.target;
+                const interactiveTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'VIDEO', 'CANVAS'];
+                if (interactiveTags.includes(target.tagName) ||
+                    target.closest('button, a, input, textarea, [contenteditable="true"]')) {
+                    return;
+                }
+
+                const now = Date.now();
+                if (now - lastTap < 350 && now - lastTap > 0) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    self.showSettingsButton();
+                    self.showToast('设置按钮已显示', 'info');
+                    lastTap = 0;
+                } else {
+                    lastTap = now;
+                }
+            };
+
+            document.addEventListener('touchstart', handleTouchStart, { passive: false });
+        },
+        setupDesktopRevealOnDblClick() {
+            if ('ontouchstart' in window) return; // 仅桌面端（非触屏）
+
+            const handleDblClick = (e) => {
+                if (!this.isButtonHidden) return;
+
+                const target = e.target;
+                // 跳过可交互元素
+                const interactiveTags = ['INPUT', 'TEXTAREA', 'BUTTON', 'SELECT', 'A', 'VIDEO', 'CANVAS'];
+                if (interactiveTags.includes(target.tagName) ||
+                    target.closest('button, a, input, textarea, [contenteditable="true"]')) {
+                    return;
+                }
+
+                e.preventDefault();
+                e.stopPropagation();
+                this.showSettingsButton();
+                this.showToast('设置按钮已显示', 'info');
+            };
+
+            document.addEventListener('dblclick', handleDblClick);
         },
 
         showToast(message, type = 'info') {
@@ -694,7 +697,6 @@
         }
     };
 
-    // 确保在DOM加载完成后初始化
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             ImageCompressor.init();
