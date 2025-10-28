@@ -16,6 +16,7 @@
   - [Z.AI](https://chat.z.ai/)
   - [Google Gemini](https://gemini.google.com/)
   - [DeepSeek Chat](https://chat.deepseek.com/)
+  - [Chatgpt](https://chatgpt.com/)
 - ⚙️ **灵活设置**：
   - 自定义压缩质量、最大分辨率、输出格式（WebP / JPEG）
   - 开启/关闭自动压缩、自适应质量
