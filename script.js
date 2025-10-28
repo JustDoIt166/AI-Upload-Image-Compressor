@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩
 // @namespace   https://github.com/JustDoIt166
-// @version     1.2.5
+// @version     1.2.6
 // @description 拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮；隐藏状态持久化
 // @author      JustDoIt166
+// @icon  https://raw.githubusercontent.com/JustDoIt166/AI-Upload-Image-Compressor/refs/heads/main/assets/icon.svg
 // @match       https://chat.qwen.ai/*
 // @match       https://chat.z.ai/*
+// @match       https://chatgpt.com/*
 // @match       https://gemini.google.com/*
 // @match       https://chat.deepseek.com/*
-// @grant       none
+// @grant       GM_registerMenuCommand
 // @license     MIT
 // ==/UserScript==
 
@@ -25,12 +27,13 @@
     const DEFAULT_SETTINGS = {
         mimeType: 'image/webp',
         quality: 0.85,
-        maxWidth: 2560,
-        maxHeight: 1440,
+        maxWidth: 4096,
+        maxHeight: 2160,
         autoCompress: true,
         adaptiveQuality: true,
         enableHotkey: true,
-        hotkey: 'Alt+C'
+        hotkey: 'Alt+C',
+        enableDblClickReveal: true  // 是否允许双击空白区域唤出按钮
     };
 
     const stats = {
@@ -51,9 +54,17 @@
             this.createUI();
             this.initWorker();
             this.setupHotkeyListener();
-            this.setupGlobalRevealOnDblTap(); //移动端空白双击唤出按钮
-            this.setupDesktopRevealOnDblClick(); //桌面端空白双击唤出按钮
-            console.log('🛡️ 图片压缩脚本 v1.2.5 已激活');
+            if (this.settings.enableDblClickReveal) {
+                this.setupGlobalRevealOnDblTap(); // 移动端空白双击唤出按钮
+                this.setupDesktopRevealOnDblClick(); // 桌面端空白双击唤出按钮
+            }
+            if (typeof GM_registerMenuCommand !== 'undefined') {
+                GM_registerMenuCommand('打开图片压缩设置', () => {
+                    this.showSettingsButton();
+                    this.toggleSettingsPanel();
+                });
+            }
+            console.log('🛡️ 图片压缩脚本 v1.2.6 已激活');
         },
 
         loadSettings() {
@@ -266,12 +277,10 @@
                 width: 50px;
                 height: 50px;
                 background: #FDF8EC;
-                color: white;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 24px;
                 cursor: move;
                 z-index: 99999;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -480,6 +489,7 @@
                         启用快捷键唤出设置按钮
                     </label>
                 </div>
+
                 <div class="setting-item" style="margin-bottom: 16px;">
                     <label style="display: block; margin-bottom: 8px; color: #555;">
                         快捷键（示例：Alt+C、Ctrl+Shift+P）:
@@ -490,6 +500,12 @@
                     <p style="font-size: 12px; color: #888; margin-top: 4px;">
                         支持 Ctrl / Shift / Alt / Meta（Mac ⌘）+ 字母/数字/F1~F12
                     </p>
+                </div>
+                <div class="setting-item" style="margin-bottom: 16px;">
+                    <label style="display: flex; align-items: center; color: #555;">
+                        <input type="checkbox" id="enable-dblclick-reveal" ${this.settings.enableDblClickReveal ? 'checked' : ''} style="margin-right: 8px;">
+                        允许双击空白区域唤出按钮
+                    </label>
                 </div>
                 <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee;">
                     <p style="color: #666; font-size: 14px; margin: 0 0 16px 0;">
@@ -530,6 +546,7 @@
                 this.settings.adaptiveQuality = panel.querySelector('#adaptive-quality').checked;
                 this.settings.enableHotkey = panel.querySelector('#enable-hotkey').checked;
                 this.settings.hotkey = panel.querySelector('#hotkey-input').value.trim() || 'Alt+C';
+                this.settings.enableDblClickReveal = panel.querySelector('#enable-dblclick-reveal').checked;
 
                 this.saveSettings();
                 this.setupHotkeyListener();
