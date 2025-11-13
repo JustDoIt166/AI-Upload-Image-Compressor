@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        AI 网页图片上传 压缩
 // @namespace   https://github.com/JustDoIt166
-// @version     1.2.6
+// @version     1.2.7
 // @description 拦截网页图片上传，替换为压缩后的图片，体积更小、加载更快；支持拖动、双击隐藏设置按钮；支持自定义快捷键唤出按钮；隐藏状态持久化
 // @author      JustDoIt166
 // @icon  https://raw.githubusercontent.com/JustDoIt166/AI-Upload-Image-Compressor/refs/heads/main/assets/icon.svg
