@@ -10,6 +10,7 @@
 // @match       https://chatgpt.com/*
 // @match       https://gemini.google.com/*
 // @match       https://chat.deepseek.com/*
+// @match       https://yiyan.baidu.com/*
 // @grant       GM_registerMenuCommand
 // @license     MIT
 // ==/UserScript==
